@@ -85,24 +85,21 @@ function anthropicToOpenAI(body) {
 }
 
 // 解析 thinking 配置 → blink.new 的 reasoning + verbosity
+// 默认启用思考，verbosity 为 max
 function resolveThinkingConfig(body) {
   const thinking = body.thinking;
   const outputConfig = body.output_config;
 
-  // 判断是否需要启用 reasoning
-  let enabled = false;
-  let verbosity = null;
-
-  if (thinking) {
-    const type = thinking.type;
-    if (type === 'enabled' || type === 'adaptive') {
-      enabled = true;
-    }
+  // 显式禁用思考时才关闭
+  if (thinking && thinking.type === 'disabled') {
+    return null;
   }
 
-  // output_config.effort → verbosity 映射
+  // 默认值：启用 + max
+  let verbosity = 'max';
+
+  // output_config.effort 优先级最高
   if (outputConfig && outputConfig.effort) {
-    enabled = true;
     switch (outputConfig.effort) {
       case 'low': verbosity = 'low'; break;
       case 'medium': verbosity = 'medium'; break;
@@ -125,8 +122,6 @@ function resolveThinkingConfig(body) {
       }
     }
   }
-
-  if (!enabled) return null;
 
   return {
     reasoning: { enabled: true },
