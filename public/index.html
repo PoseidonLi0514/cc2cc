@@ -5,155 +5,284 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>cc2cc 管理面板</title>
   <style>
+    :root {
+      --bg-primary: #09090b;
+      --bg-card: #18181b;
+      --bg-input: #27272a;
+      --bg-hover: #3f3f46;
+      --border: #27272a;
+      --border-hover: #3f3f46;
+      --text-primary: #fafafa;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --green: #22c55e;
+      --green-dim: #16a34a;
+      --red: #ef4444;
+      --red-dim: #dc2626;
+      --yellow: #eab308;
+      --radius: 10px;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
-    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
-    h1 { font-size: 24px; margin-bottom: 8px; color: #f1f5f9; }
-    .subtitle { color: #94a3b8; margin-bottom: 32px; font-size: 14px; }
 
-    .card { background: #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 20px; border: 1px solid #334155; }
-    .card h2 { font-size: 16px; margin-bottom: 16px; color: #f8fafc; display: flex; align-items: center; gap: 8px; }
-    .card h2 .badge { font-size: 12px; background: #3b82f6; padding: 2px 8px; border-radius: 9999px; font-weight: normal; }
-
-    label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
-    input[type="text"], input[type="password"], textarea {
-      width: 100%; padding: 10px 14px; background: #0f172a; border: 1px solid #334155;
-      border-radius: 8px; color: #e2e8f0; font-size: 14px; font-family: monospace; outline: none;
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
-    input[type="text"]:focus, input[type="password"]:focus, textarea:focus { border-color: #3b82f6; }
-    textarea { resize: vertical; min-height: 120px; }
-
-    .btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-    button {
-      padding: 8px 18px; border: none; border-radius: 8px; font-size: 13px;
-      cursor: pointer; font-weight: 500; transition: all 0.15s;
-    }
-    .btn-primary { background: #3b82f6; color: white; }
-    .btn-primary:hover { background: #2563eb; }
-    .btn-danger { background: #ef4444; color: white; }
-    .btn-danger:hover { background: #dc2626; }
-    .btn-success { background: #22c55e; color: white; }
-    .btn-success:hover { background: #16a34a; }
-    .btn-ghost { background: transparent; color: #94a3b8; border: 1px solid #334155; }
-    .btn-ghost:hover { background: #334155; }
-
-    .stats { display: flex; gap: 16px; margin-bottom: 16px; }
-    .stat { padding: 12px 20px; background: #0f172a; border-radius: 8px; text-align: center; flex: 1; }
-    .stat .num { font-size: 28px; font-weight: 700; }
-    .stat .label { font-size: 12px; color: #94a3b8; margin-top: 4px; }
-    .stat.total .num { color: #3b82f6; }
-    .stat.enabled .num { color: #22c55e; }
-    .stat.disabled .num { color: #ef4444; }
-
-    .key-list { margin-top: 12px; }
-    .key-item {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 14px; background: #0f172a; border-radius: 8px; margin-bottom: 6px;
-      border: 1px solid #334155; font-size: 13px;
-    }
-    .key-item .key-text { font-family: monospace; flex: 1; }
-    .key-item .key-call-count { margin: 0 10px; font-size: 12px; color: #3b82f6; font-weight: 500; white-space: nowrap; }
-    .key-item .key-status { margin: 0 12px; }
-    .key-item .key-status.active { color: #22c55e; }
-    .key-item .key-status.inactive { color: #ef4444; }
-    .key-item .key-reason { font-size: 11px; color: #94a3b8; margin: 0 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .key-item .key-actions { display: flex; gap: 6px; }
-    .key-item .key-actions button { padding: 4px 10px; font-size: 12px; }
-
-    .toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; font-size: 14px; z-index: 1000; animation: fadeIn 0.2s; }
-    .toast.success { background: #166534; color: #bbf7d0; }
-    .toast.error { background: #991b1b; color: #fecaca; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-    .empty { text-align: center; color: #64748b; padding: 32px; }
-
-    .select-all-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; color: #94a3b8; }
-    .select-all-row input[type="checkbox"] { width: 16px; height: 16px; }
-    .key-item input[type="checkbox"] { width: 16px; height: 16px; margin-right: 10px; flex-shrink: 0; }
 
     /* 登录页 */
     .login-overlay {
-      position: fixed; inset: 0; background: #0f172a; z-index: 2000;
+      position: fixed; inset: 0; background: var(--bg-primary); z-index: 2000;
       display: flex; align-items: center; justify-content: center;
     }
     .login-box {
-      background: #1e293b; border-radius: 16px; padding: 40px; width: 420px;
-      border: 1px solid #334155; text-align: center;
+      width: 400px; text-align: center;
     }
-    .login-box h1 { margin-bottom: 4px; }
-    .login-box .subtitle { margin-bottom: 24px; }
-    .login-box input { margin-bottom: 16px; text-align: center; }
-    .login-box .error-msg { color: #f87171; font-size: 13px; margin-bottom: 12px; min-height: 20px; }
-    .login-box button { width: 100%; padding: 12px; font-size: 15px; }
+    .login-logo {
+      width: 56px; height: 56px; margin: 0 auto 20px;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      border-radius: 14px; display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 700; color: white; letter-spacing: -1px;
+    }
+    .login-box h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+    .login-box .subtitle { color: var(--text-secondary); margin-bottom: 28px; font-size: 14px; }
+    .login-box input {
+      width: 100%; padding: 12px 16px; background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text-primary); font-size: 14px;
+      outline: none; text-align: center; margin-bottom: 12px;
+      transition: border-color 0.2s;
+    }
+    .login-box input:focus { border-color: var(--accent); }
+    .login-box input::placeholder { color: var(--text-muted); }
+    .login-box .error-msg { color: var(--red); font-size: 13px; margin-bottom: 12px; min-height: 20px; }
+    .login-box button {
+      width: 100%; padding: 12px; font-size: 14px; font-weight: 500;
+      background: var(--accent); color: white; border: none; border-radius: var(--radius);
+      cursor: pointer; transition: background 0.2s;
+    }
+    .login-box button:hover { background: var(--accent-hover); }
 
-    .header-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
-    .header-bar .left h1 { margin-bottom: 4px; }
-    .header-bar .left .subtitle { margin-bottom: 0; }
-    .header-bar .right button { padding: 6px 14px; font-size: 12px; }
+    /* 主布局 */
+    .container { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
 
+    .header-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border);
+    }
+    .header-bar .brand { display: flex; align-items: center; gap: 14px; }
+    .header-bar .brand-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 700; color: white; letter-spacing: -0.5px;
+    }
+    .header-bar h1 { font-size: 18px; font-weight: 600; }
+    .header-bar .subtitle { color: var(--text-muted); font-size: 13px; margin-top: 2px; }
+    .header-bar .right button {
+      padding: 7px 14px; font-size: 12px; background: transparent;
+      color: var(--text-secondary); border: 1px solid var(--border);
+      border-radius: 8px; cursor: pointer; transition: all 0.15s;
+    }
+    .header-bar .right button:hover { background: var(--bg-input); color: var(--text-primary); }
+
+    /* 卡片 */
+    .card {
+      background: var(--bg-card); border-radius: 14px; padding: 24px;
+      margin-bottom: 16px; border: 1px solid var(--border);
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .card-header h2 {
+      font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 10px;
+    }
+    .card-header .badge {
+      font-size: 11px; background: var(--accent); padding: 2px 8px;
+      border-radius: 9999px; font-weight: 500; color: white;
+    }
+
+    /* 表单 */
+    label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 500; }
+    input[type="text"], textarea {
+      width: 100%; padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text-primary); font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace;
+      outline: none; transition: border-color 0.2s;
+    }
+    input[type="text"]:focus, textarea:focus { border-color: var(--accent); }
+    input[type="text"]::placeholder, textarea::placeholder { color: var(--text-muted); }
+    textarea { resize: vertical; min-height: 100px; }
+
+    /* 按钮 */
+    .btn-row { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+    button {
+      padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px;
+      cursor: pointer; font-weight: 500; transition: all 0.15s; white-space: nowrap;
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--red); }
+    .btn-danger:hover { background: rgba(239, 68, 68, 0.25); }
+    .btn-success { background: rgba(34, 197, 94, 0.15); color: var(--green); }
+    .btn-success:hover { background: rgba(34, 197, 94, 0.25); }
+    .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--bg-input); color: var(--text-primary); }
+
+    /* 统计 */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    .stat {
+      padding: 16px; background: var(--bg-input); border-radius: 10px;
+      text-align: center; border: 1px solid var(--border);
+    }
+    .stat .num { font-size: 32px; font-weight: 700; letter-spacing: -1px; }
+    .stat .label { font-size: 12px; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
+    .stat.total .num { color: var(--accent); }
+    .stat.enabled .num { color: var(--green); }
+    .stat.disabled .num { color: var(--red); }
+
+    /* Key 列表 */
+    .key-list { margin-top: 12px; }
+    .key-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; background: var(--bg-input); border-radius: 8px;
+      margin-bottom: 6px; border: 1px solid var(--border); font-size: 13px;
+      transition: border-color 0.15s;
+    }
+    .key-item:hover { border-color: var(--border-hover); }
+    .key-item input[type="checkbox"] {
+      width: 16px; height: 16px; flex-shrink: 0;
+      accent-color: var(--accent); cursor: pointer;
+    }
+    .key-item .key-text {
+      font-family: 'SF Mono', 'Fira Code', monospace; flex: 1;
+      font-size: 12px; color: var(--text-secondary);
+    }
+    .key-item .key-call-count {
+      font-size: 11px; color: var(--accent); font-weight: 600;
+      background: rgba(99, 102, 241, 0.1); padding: 3px 8px;
+      border-radius: 6px; white-space: nowrap;
+    }
+    .key-item .key-status {
+      font-size: 12px; font-weight: 500; white-space: nowrap;
+    }
+    .key-item .key-status.active { color: var(--green); }
+    .key-item .key-status.inactive { color: var(--red); }
+    .key-item .key-reason {
+      font-size: 11px; color: var(--text-muted); max-width: 160px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .key-item .key-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .key-item .key-actions button { padding: 4px 10px; font-size: 11px; }
+
+    /* 工具栏 */
+    .toolbar {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 10px; font-size: 13px; color: var(--text-secondary);
+      flex-wrap: wrap;
+    }
+    .toolbar input[type="checkbox"] {
+      width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;
+    }
+    .toolbar .spacer { flex: 1; }
+    .toolbar button { padding: 5px 12px; font-size: 11px; }
+
+    /* Toast */
+    .toast {
+      position: fixed; top: 20px; right: 20px; padding: 12px 20px;
+      border-radius: 10px; font-size: 13px; font-weight: 500;
+      z-index: 3000; animation: toastIn 0.3s ease-out;
+      backdrop-filter: blur(12px); border: 1px solid;
+    }
+    .toast.success {
+      background: rgba(34, 197, 94, 0.12); color: var(--green);
+      border-color: rgba(34, 197, 94, 0.2);
+    }
+    .toast.error {
+      background: rgba(239, 68, 68, 0.12); color: var(--red);
+      border-color: rgba(239, 68, 68, 0.2);
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .empty { text-align: center; color: var(--text-muted); padding: 40px; font-size: 14px; }
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-  <!-- 登录遮罩层 -->
+  <!-- 登录 -->
   <div class="login-overlay hidden" id="loginOverlay">
     <div class="login-box">
+      <div class="login-logo">cc</div>
       <h1>cc2cc</h1>
       <p class="subtitle">请输入任意一个已添加的 Key 登录</p>
       <input type="password" id="loginKeyInput" placeholder="输入 Key 登录..." onkeydown="if(event.key==='Enter') doLogin()">
       <div class="error-msg" id="loginError"></div>
-      <button class="btn-primary" onclick="doLogin()">登录</button>
+      <button onclick="doLogin()">登录</button>
     </div>
   </div>
 
   <!-- 主面板 -->
   <div class="container hidden" id="mainPanel">
     <div class="header-bar">
-      <div class="left">
-        <h1>cc2cc 管理面板</h1>
-        <p class="subtitle">Anthropic Messages API &harr; OpenAI Chat Completions 代理转换服务</p>
+      <div class="brand">
+        <div class="brand-icon">cc</div>
+        <div>
+          <h1>cc2cc</h1>
+          <p class="subtitle">Anthropic &harr; OpenAI 代理转换</p>
+        </div>
       </div>
       <div class="right">
-        <button class="btn-ghost" onclick="doLogout()">退出登录</button>
+        <button onclick="doLogout()">退出登录</button>
       </div>
     </div>
 
     <!-- 上游配置 -->
     <div class="card">
-      <h2>上游配置</h2>
+      <div class="card-header">
+        <h2>上游配置</h2>
+      </div>
       <label>上游 API 地址</label>
       <input type="text" id="upstreamUrl" placeholder="https://core.blink.new/api/v1/ai/chat/completions">
       <div class="btn-row">
-        <button class="btn-primary" onclick="saveConfig()">保存配置</button>
+        <button class="btn-primary" onclick="saveConfig()">保存</button>
       </div>
     </div>
 
-    <!-- Key 统计 -->
+    <!-- Key 管理 -->
     <div class="card">
-      <h2>Key 管理 <span class="badge" id="keyBadge">0</span></h2>
+      <div class="card-header">
+        <h2>Key 管理 <span class="badge" id="keyBadge">0</span></h2>
+      </div>
+
       <div class="stats">
         <div class="stat total"><div class="num" id="statTotal">0</div><div class="label">总计</div></div>
         <div class="stat enabled"><div class="num" id="statEnabled">0</div><div class="label">可用</div></div>
         <div class="stat disabled"><div class="num" id="statDisabled">0</div><div class="label">已禁用</div></div>
       </div>
 
-      <!-- 批量添加 -->
       <label>批量添加 Key（每行一个）</label>
       <textarea id="addKeysInput" placeholder="blnk_ak_xxx&#10;blnk_ak_yyy&#10;blnk_ak_zzz"></textarea>
       <div class="btn-row">
-        <button class="btn-primary" onclick="addKeys()">批量添加</button>
+        <button class="btn-primary" onclick="addKeys()">添加</button>
       </div>
 
-      <!-- Key 列表 -->
-      <div style="margin-top: 20px;">
-        <div class="select-all-row">
+      <div style="margin-top: 24px;">
+        <div class="toolbar">
           <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
           <span>全选</span>
-          <div style="flex:1"></div>
-          <button class="btn-danger" onclick="deleteDisabled()" style="padding: 4px 12px; font-size: 12px;">删除已禁用</button>
-          <button class="btn-danger" onclick="deleteSelected()" style="padding: 4px 12px; font-size: 12px;">删除选中</button>
-          <button class="btn-success" onclick="enableSelected()" style="padding: 4px 12px; font-size: 12px;">启用选中</button>
-          <button class="btn-ghost" onclick="disableSelected()" style="padding: 4px 12px; font-size: 12px;">禁用选中</button>
+          <div class="spacer"></div>
+          <button class="btn-danger" onclick="deleteDisabled()">删除已禁用</button>
+          <button class="btn-danger" onclick="deleteSelected()">删除选中</button>
+          <button class="btn-success" onclick="enableSelected()">启用选中</button>
+          <button class="btn-ghost" onclick="disableSelected()">禁用选中</button>
         </div>
         <div id="keyList" class="key-list">
           <div class="empty">暂无 Key，请先添加</div>
@@ -166,7 +295,6 @@
     let allKeys = [];
     let authToken = localStorage.getItem('cc2cc_token') || '';
 
-    // ======== 通用 API 调用（自动带 token）========
     async function api(method, url, body) {
       const opts = { method, headers: { 'Content-Type': 'application/json' } };
       if (authToken) {
@@ -175,7 +303,6 @@
       if (body) opts.body = JSON.stringify(body);
       const res = await fetch(url, opts);
 
-      // 401 → token 失效，回到登录
       if (res.status === 401) {
         const data = await res.json().catch(() => ({}));
         if (data.needAuth) {
@@ -196,7 +323,6 @@
       setTimeout(() => el.remove(), 3000);
     }
 
-    // ======== 鉴权流程 ========
     async function checkAuth() {
       try {
         const data = await fetch('/admin/auth-status', {
@@ -204,13 +330,10 @@
         }).then(r => r.json());
 
         if (!data.needAuth) {
-          // 没有 key，无需鉴权，直接进入
           showMain();
         } else if (data.authenticated) {
-          // 已登录
           showMain();
         } else {
-          // 需要登录
           showLogin();
         }
       } catch {
@@ -272,7 +395,6 @@
       checkAuth();
     }
 
-    // ======== 管理功能 ========
     async function loadConfig() {
       try {
         const data = await api('GET', '/admin/config');
@@ -312,8 +434,8 @@
         <div class="key-item">
           <input type="checkbox" class="key-checkbox" data-key="${k.key}">
           <span class="key-text">${k.maskedKey}</span>
-          <span class="key-call-count" title="调用次数">${k.callCount || 0} 次</span>
-          <span class="key-status ${k.enabled ? 'active' : 'inactive'}">${k.enabled ? '● 可用' : '● 已禁用'}</span>
+          <span class="key-call-count">${k.callCount || 0} 次</span>
+          <span class="key-status ${k.enabled ? 'active' : 'inactive'}">${k.enabled ? '可用' : '已禁用'}</span>
           ${k.disableReason ? `<span class="key-reason" title="${k.disableReason}">${k.disableReason}</span>` : ''}
           <div class="key-actions">
             ${k.enabled
@@ -405,10 +527,8 @@
       } catch {}
     }
 
-    // ======== 初始化 ========
     checkAuth();
     setInterval(() => {
-      // 只在主面板可见时刷新
       if (!document.getElementById('mainPanel').classList.contains('hidden')) {
         loadKeys();
       }
