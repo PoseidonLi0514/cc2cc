@@ -150,6 +150,7 @@
           <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
           <span>全选</span>
           <div style="flex:1"></div>
+          <button class="btn-danger" onclick="deleteDisabled()" style="padding: 4px 12px; font-size: 12px;">删除已禁用</button>
           <button class="btn-danger" onclick="deleteSelected()" style="padding: 4px 12px; font-size: 12px;">删除选中</button>
           <button class="btn-success" onclick="enableSelected()" style="padding: 4px 12px; font-size: 12px;">启用选中</button>
           <button class="btn-ghost" onclick="disableSelected()" style="padding: 4px 12px; font-size: 12px;">禁用选中</button>
@@ -390,6 +391,16 @@
       try {
         for (const key of keys) await api('POST', '/admin/keys/disable', { key, reason: '批量手动禁用' });
         toast(`已禁用 ${keys.length} 个 Key`);
+        loadKeys();
+      } catch {}
+    }
+
+    async function deleteDisabled() {
+      const disabledKeys = allKeys.filter(k => !k.enabled).map(k => k.key);
+      if (disabledKeys.length === 0) return toast('没有已禁用的 Key', 'error');
+      try {
+        await api('DELETE', '/admin/keys', { keys: disabledKeys });
+        toast(`已删除 ${disabledKeys.length} 个已禁用 Key`);
         loadKeys();
       } catch {}
     }
