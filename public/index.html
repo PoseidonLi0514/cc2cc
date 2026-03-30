@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>cc2cc 管理面板</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+    h1 { font-size: 24px; margin-bottom: 8px; color: #f1f5f9; }
+    .subtitle { color: #94a3b8; margin-bottom: 32px; font-size: 14px; }
+
+    .card { background: #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 20px; border: 1px solid #334155; }
+    .card h2 { font-size: 16px; margin-bottom: 16px; color: #f8fafc; display: flex; align-items: center; gap: 8px; }
+    .card h2 .badge { font-size: 12px; background: #3b82f6; padding: 2px 8px; border-radius: 9999px; font-weight: normal; }
+
+    label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
+    input[type="text"], input[type="password"], textarea {
+      width: 100%; padding: 10px 14px; background: #0f172a; border: 1px solid #334155;
+      border-radius: 8px; color: #e2e8f0; font-size: 14px; font-family: monospace; outline: none;
+    }
+    input[type="text"]:focus, input[type="password"]:focus, textarea:focus { border-color: #3b82f6; }
+    textarea { resize: vertical; min-height: 120px; }
+
+    .btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    button {
+      padding: 8px 18px; border: none; border-radius: 8px; font-size: 13px;
+      cursor: pointer; font-weight: 500; transition: all 0.15s;
+    }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-success { background: #22c55e; color: white; }
+    .btn-success:hover { background: #16a34a; }
+    .btn-ghost { background: transparent; color: #94a3b8; border: 1px solid #334155; }
+    .btn-ghost:hover { background: #334155; }
+
+    .stats { display: flex; gap: 16px; margin-bottom: 16px; }
+    .stat { padding: 12px 20px; background: #0f172a; border-radius: 8px; text-align: center; flex: 1; }
+    .stat .num { font-size: 28px; font-weight: 700; }
+    .stat .label { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+    .stat.total .num { color: #3b82f6; }
+    .stat.enabled .num { color: #22c55e; }
+    .stat.disabled .num { color: #ef4444; }
+
+    .key-list { margin-top: 12px; }
+    .key-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: #0f172a; border-radius: 8px; margin-bottom: 6px;
+      border: 1px solid #334155; font-size: 13px;
+    }
+    .key-item .key-text { font-family: monospace; flex: 1; }
+    .key-item .key-status { margin: 0 12px; }
+    .key-item .key-status.active { color: #22c55e; }
+    .key-item .key-status.inactive { color: #ef4444; }
+    .key-item .key-reason { font-size: 11px; color: #94a3b8; margin: 0 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .key-item .key-actions { display: flex; gap: 6px; }
+    .key-item .key-actions button { padding: 4px 10px; font-size: 12px; }
+
+    .toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; font-size: 14px; z-index: 1000; animation: fadeIn 0.2s; }
+    .toast.success { background: #166534; color: #bbf7d0; }
+    .toast.error { background: #991b1b; color: #fecaca; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    .empty { text-align: center; color: #64748b; padding: 32px; }
+
+    .select-all-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; color: #94a3b8; }
+    .select-all-row input[type="checkbox"] { width: 16px; height: 16px; }
+    .key-item input[type="checkbox"] { width: 16px; height: 16px; margin-right: 10px; flex-shrink: 0; }
+
+    /* 登录页 */
+    .login-overlay {
+      position: fixed; inset: 0; background: #0f172a; z-index: 2000;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .login-box {
+      background: #1e293b; border-radius: 16px; padding: 40px; width: 420px;
+      border: 1px solid #334155; text-align: center;
+    }
+    .login-box h1 { margin-bottom: 4px; }
+    .login-box .subtitle { margin-bottom: 24px; }
+    .login-box input { margin-bottom: 16px; text-align: center; }
+    .login-box .error-msg { color: #f87171; font-size: 13px; margin-bottom: 12px; min-height: 20px; }
+    .login-box button { width: 100%; padding: 12px; font-size: 15px; }
+
+    .header-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+    .header-bar .left h1 { margin-bottom: 4px; }
+    .header-bar .left .subtitle { margin-bottom: 0; }
+    .header-bar .right button { padding: 6px 14px; font-size: 12px; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- 登录遮罩层 -->
+  <div class="login-overlay hidden" id="loginOverlay">
+    <div class="login-box">
+      <h1>cc2cc</h1>
+      <p class="subtitle">请输入任意一个已添加的 Key 登录</p>
+      <input type="password" id="loginKeyInput" placeholder="输入 Key 登录..." onkeydown="if(event.key==='Enter') doLogin()">
+      <div class="error-msg" id="loginError"></div>
+      <button class="btn-primary" onclick="doLogin()">登录</button>
+    </div>
+  </div>
+
+  <!-- 主面板 -->
+  <div class="container hidden" id="mainPanel">
+    <div class="header-bar">
+      <div class="left">
+        <h1>cc2cc 管理面板</h1>
+        <p class="subtitle">Anthropic Messages API &harr; OpenAI Chat Completions 代理转换服务</p>
+      </div>
+      <div class="right">
+        <button class="btn-ghost" onclick="doLogout()">退出登录</button>
+      </div>
+    </div>
+
+    <!-- 上游配置 -->
+    <div class="card">
+      <h2>上游配置</h2>
+      <label>上游 API 地址</label>
+      <input type="text" id="upstreamUrl" placeholder="https://core.blink.new/api/v1/ai/chat/completions">
+      <div class="btn-row">
+        <button class="btn-primary" onclick="saveConfig()">保存配置</button>
+      </div>
+    </div>
+
+    <!-- Key 统计 -->
+    <div class="card">
+      <h2>Key 管理 <span class="badge" id="keyBadge">0</span></h2>
+      <div class="stats">
+        <div class="stat total"><div class="num" id="statTotal">0</div><div class="label">总计</div></div>
+        <div class="stat enabled"><div class="num" id="statEnabled">0</div><div class="label">可用</div></div>
+        <div class="stat disabled"><div class="num" id="statDisabled">0</div><div class="label">已禁用</div></div>
+      </div>
+
+      <!-- 批量添加 -->
+      <label>批量添加 Key（每行一个）</label>
+      <textarea id="addKeysInput" placeholder="blnk_ak_xxx&#10;blnk_ak_yyy&#10;blnk_ak_zzz"></textarea>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="addKeys()">批量添加</button>
+      </div>
+
+      <!-- Key 列表 -->
+      <div style="margin-top: 20px;">
+        <div class="select-all-row">
+          <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+          <span>全选</span>
+          <div style="flex:1"></div>
+          <button class="btn-danger" onclick="deleteSelected()" style="padding: 4px 12px; font-size: 12px;">删除选中</button>
+          <button class="btn-success" onclick="enableSelected()" style="padding: 4px 12px; font-size: 12px;">启用选中</button>
+          <button class="btn-ghost" onclick="disableSelected()" style="padding: 4px 12px; font-size: 12px;">禁用选中</button>
+        </div>
+        <div id="keyList" class="key-list">
+          <div class="empty">暂无 Key，请先添加</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allKeys = [];
+    let authToken = localStorage.getItem('cc2cc_token') || '';
+
+    // ======== 通用 API 调用（自动带 token）========
+    async function api(method, url, body) {
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (authToken) {
+        opts.headers['Authorization'] = `Bearer ${authToken}`;
+      }
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(url, opts);
+
+      // 401 → token 失效，回到登录
+      if (res.status === 401) {
+        const data = await res.json().catch(() => ({}));
+        if (data.needAuth) {
+          authToken = '';
+          localStorage.removeItem('cc2cc_token');
+          checkAuth();
+          throw new Error('需要重新登录');
+        }
+      }
+      return res.json();
+    }
+
+    function toast(msg, type = 'success') {
+      const el = document.createElement('div');
+      el.className = `toast ${type}`;
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+
+    // ======== 鉴权流程 ========
+    async function checkAuth() {
+      try {
+        const data = await fetch('/admin/auth-status', {
+          headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
+        }).then(r => r.json());
+
+        if (!data.needAuth) {
+          // 没有 key，无需鉴权，直接进入
+          showMain();
+        } else if (data.authenticated) {
+          // 已登录
+          showMain();
+        } else {
+          // 需要登录
+          showLogin();
+        }
+      } catch {
+        showLogin();
+      }
+    }
+
+    function showLogin() {
+      document.getElementById('loginOverlay').classList.remove('hidden');
+      document.getElementById('mainPanel').classList.add('hidden');
+      document.getElementById('loginError').textContent = '';
+      document.getElementById('loginKeyInput').value = '';
+      document.getElementById('loginKeyInput').focus();
+    }
+
+    function showMain() {
+      document.getElementById('loginOverlay').classList.add('hidden');
+      document.getElementById('mainPanel').classList.remove('hidden');
+      loadConfig();
+      loadKeys();
+    }
+
+    async function doLogin() {
+      const key = document.getElementById('loginKeyInput').value.trim();
+      if (!key) {
+        document.getElementById('loginError').textContent = '请输入 Key';
+        return;
+      }
+
+      try {
+        const res = await fetch('/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key }),
+        });
+        const data = await res.json();
+
+        if (data.ok && data.token) {
+          authToken = data.token;
+          localStorage.setItem('cc2cc_token', authToken);
+          showMain();
+        } else {
+          document.getElementById('loginError').textContent = data.error || '登录失败';
+        }
+      } catch (err) {
+        document.getElementById('loginError').textContent = '网络错误';
+      }
+    }
+
+    async function doLogout() {
+      try {
+        await fetch('/admin/logout', {
+          method: 'POST',
+          headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
+        });
+      } catch {}
+      authToken = '';
+      localStorage.removeItem('cc2cc_token');
+      checkAuth();
+    }
+
+    // ======== 管理功能 ========
+    async function loadConfig() {
+      try {
+        const data = await api('GET', '/admin/config');
+        document.getElementById('upstreamUrl').value = data.upstreamBaseUrl || '';
+      } catch {}
+    }
+
+    async function saveConfig() {
+      const url = document.getElementById('upstreamUrl').value.trim();
+      if (!url) return toast('请输入上游地址', 'error');
+      try {
+        await api('POST', '/admin/config', { upstreamBaseUrl: url });
+        toast('配置已保存');
+      } catch {}
+    }
+
+    async function loadKeys() {
+      try {
+        const data = await api('GET', '/admin/keys');
+        allKeys = data.keys || [];
+        const stats = data.stats || {};
+        document.getElementById('statTotal').textContent = stats.total || 0;
+        document.getElementById('statEnabled').textContent = stats.enabled || 0;
+        document.getElementById('statDisabled').textContent = stats.disabled || 0;
+        document.getElementById('keyBadge').textContent = stats.total || 0;
+        renderKeys();
+      } catch {}
+    }
+
+    function renderKeys() {
+      const list = document.getElementById('keyList');
+      if (allKeys.length === 0) {
+        list.innerHTML = '<div class="empty">暂无 Key，请先添加</div>';
+        return;
+      }
+      list.innerHTML = allKeys.map((k) => `
+        <div class="key-item">
+          <input type="checkbox" class="key-checkbox" data-key="${k.key}">
+          <span class="key-text">${k.maskedKey}</span>
+          <span class="key-status ${k.enabled ? 'active' : 'inactive'}">${k.enabled ? '● 可用' : '● 已禁用'}</span>
+          ${k.disableReason ? `<span class="key-reason" title="${k.disableReason}">${k.disableReason}</span>` : ''}
+          <div class="key-actions">
+            ${k.enabled
+              ? `<button class="btn-ghost" onclick="toggleKey('${k.key}', false)">禁用</button>`
+              : `<button class="btn-success" onclick="toggleKey('${k.key}', true)">启用</button>`}
+            <button class="btn-danger" onclick="deleteKey('${k.key}')">删除</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function addKeys() {
+      const text = document.getElementById('addKeysInput').value.trim();
+      if (!text) return toast('请输入 Key', 'error');
+      const keys = text.split('\n').map(k => k.trim()).filter(Boolean);
+      try {
+        const data = await api('POST', '/admin/keys', { keys });
+        toast(`已添加 ${data.added} 个 Key`);
+        document.getElementById('addKeysInput').value = '';
+        loadKeys();
+      } catch {}
+    }
+
+    async function toggleKey(key, enable) {
+      try {
+        if (enable) {
+          await api('POST', '/admin/keys/enable', { key });
+        } else {
+          await api('POST', '/admin/keys/disable', { key, reason: '手动禁用' });
+        }
+        loadKeys();
+      } catch {}
+    }
+
+    async function deleteKey(key) {
+      try {
+        await api('DELETE', '/admin/keys', { keys: [key] });
+        toast('已删除');
+        loadKeys();
+      } catch {}
+    }
+
+    function getSelectedKeys() {
+      return [...document.querySelectorAll('.key-checkbox:checked')].map(el => el.dataset.key);
+    }
+
+    function toggleSelectAll() {
+      const checked = document.getElementById('selectAll').checked;
+      document.querySelectorAll('.key-checkbox').forEach(el => { el.checked = checked; });
+    }
+
+    async function deleteSelected() {
+      const keys = getSelectedKeys();
+      if (keys.length === 0) return toast('请先选择 Key', 'error');
+      try {
+        await api('DELETE', '/admin/keys', { keys });
+        toast(`已删除 ${keys.length} 个 Key`);
+        loadKeys();
+      } catch {}
+    }
+
+    async function enableSelected() {
+      const keys = getSelectedKeys();
+      if (keys.length === 0) return toast('请先选择 Key', 'error');
+      try {
+        for (const key of keys) await api('POST', '/admin/keys/enable', { key });
+        toast(`已启用 ${keys.length} 个 Key`);
+        loadKeys();
+      } catch {}
+    }
+
+    async function disableSelected() {
+      const keys = getSelectedKeys();
+      if (keys.length === 0) return toast('请先选择 Key', 'error');
+      try {
+        for (const key of keys) await api('POST', '/admin/keys/disable', { key, reason: '批量手动禁用' });
+        toast(`已禁用 ${keys.length} 个 Key`);
+        loadKeys();
+      } catch {}
+    }
+
+    // ======== 初始化 ========
+    checkAuth();
+    setInterval(() => {
+      // 只在主面板可见时刷新
+      if (!document.getElementById('mainPanel').classList.contains('hidden')) {
+        loadKeys();
+      }
+    }, 10000);
+  </script>
+</body>
+</html>

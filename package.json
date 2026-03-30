@@ -1,0 +1,13 @@
+{
+  "name": "cc2cc",
+  "version": "1.0.0",
+  "description": "Anthropic Messages API ↔ OpenAI Chat Completions 代理转换服务",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}
