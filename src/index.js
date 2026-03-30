@@ -184,43 +184,17 @@ app.post('/admin/keys/disable', adminAuth, (req, res) => {
 // ============================================================
 // 代理核心：Anthropic /v1/messages → blink.new OpenAI Chat
 // （不鉴权，始终轮询所有 key）
+// 402/insufficient 自动换 key 重试，对用户透明
 // ============================================================
 
-app.post('/v1/messages', async (req, res) => {
-  const apiKey = keyManager.getNextKey();
-  if (!apiKey) {
-    return res.status(503).json({
-      type: 'error',
-      error: { type: 'overloaded_error', message: '没有可用的 API Key' },
-    });
-  }
+const MAX_RETRIES = 3;
 
-  const anthropicBody = req.body;
-  const isStream = anthropicBody.stream === true;
-
-  // 本地估算 input_tokens（用于 message_start）
-  const estimatedInputTokens = estimateRequestTokens(anthropicBody);
-
-  // 转换请求体
-  let openaiBody;
-  try {
-    openaiBody = anthropicToOpenAI(anthropicBody);
-  } catch (err) {
-    console.error('[转换] 请求转换失败:', err.message);
-    return res.status(400).json({
-      type: 'error',
-      error: { type: 'invalid_request_error', message: err.message },
-    });
-  }
-
-  const upstreamBaseUrl = keyManager.getUpstreamUrl();
-  console.log(`[代理] ${isStream ? 'SSE' : '普通'} 请求 → ${upstreamBaseUrl} (key: ${apiKey.slice(0, 12)}...)`);
-
-  try {
+// 发送一次上游请求，返回 Promise
+// resolve({ statusCode, headers, body }) 或 reject(err)
+function sendUpstreamRequest(apiKey, bodyStr, upstreamBaseUrl) {
+  return new Promise((resolve, reject) => {
     const parsed = new URL(upstreamBaseUrl);
     const transport = parsed.protocol === 'https:' ? https : http;
-
-    const bodyStr = JSON.stringify(openaiBody);
 
     const options = {
       hostname: parsed.hostname,
@@ -242,23 +216,102 @@ app.post('/v1/messages', async (req, res) => {
         let errorBody = '';
         proxyRes.on('data', (chunk) => { errorBody += chunk.toString(); });
         proxyRes.on('end', () => {
-          console.error(`[代理] 上游返回 ${statusCode}: ${errorBody.slice(0, 500)}`);
-
-          if (errorBody.toLowerCase().includes('insufficient')) {
-            keyManager.disableKey(apiKey, `上游返回 insufficient (HTTP ${statusCode})`);
-            console.warn(`[Key] 自动禁用: ${apiKey.slice(0, 12)}... (insufficient)`);
-          }
-
-          res.status(statusCode).json({
-            type: 'error',
-            error: {
-              type: statusCode === 429 ? 'rate_limit_error' : 'api_error',
-              message: errorBody.slice(0, 1000),
-            },
-          });
+          resolve({ statusCode, errorBody, isError: true });
         });
         return;
       }
+
+      // 成功，返回 proxyRes 流供调用方处理
+      resolve({ statusCode, proxyRes, isError: false });
+    });
+
+    proxyReq.on('error', reject);
+    proxyReq.write(bodyStr);
+    proxyReq.end();
+  });
+}
+
+// 判断是否应该自动重试的错误
+function isRetryableError(statusCode, errorBody) {
+  if (statusCode === 402) return true;
+  if (errorBody && errorBody.toLowerCase().includes('insufficient')) return true;
+  return false;
+}
+
+app.post('/v1/messages', async (req, res) => {
+  const anthropicBody = req.body;
+  const isStream = anthropicBody.stream === true;
+
+  // 本地估算 input_tokens（用于 message_start）
+  const estimatedInputTokens = estimateRequestTokens(anthropicBody);
+
+  // 转换请求体
+  let openaiBody;
+  try {
+    openaiBody = anthropicToOpenAI(anthropicBody);
+  } catch (err) {
+    console.error('[转换] 请求转换失败:', err.message);
+    return res.status(400).json({
+      type: 'error',
+      error: { type: 'invalid_request_error', message: err.message },
+    });
+  }
+
+  const bodyStr = JSON.stringify(openaiBody);
+  const upstreamBaseUrl = keyManager.getUpstreamUrl();
+  const triedKeys = new Set();
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const apiKey = keyManager.getNextKey();
+    if (!apiKey) {
+      return res.status(503).json({
+        type: 'error',
+        error: { type: 'overloaded_error', message: '没有可用的 API Key' },
+      });
+    }
+
+    // 避免同一个 key 重试多次
+    if (triedKeys.has(apiKey)) {
+      // 所有 key 都试过了
+      return res.status(503).json({
+        type: 'error',
+        error: { type: 'overloaded_error', message: '所有可用 Key 均额度不足' },
+      });
+    }
+    triedKeys.add(apiKey);
+
+    console.log(`[代理] ${isStream ? 'SSE' : '普通'} 请求 → ${upstreamBaseUrl} (key: ${apiKey.slice(0, 12)}... 第${attempt + 1}次)`);
+
+    try {
+      const result = await sendUpstreamRequest(apiKey, bodyStr, upstreamBaseUrl);
+
+      if (result.isError) {
+        const { statusCode, errorBody } = result;
+        console.error(`[代理] 上游返回 ${statusCode}: ${errorBody.slice(0, 500)}`);
+
+        // 可重试的错误：禁用 key，换一个继续
+        if (isRetryableError(statusCode, errorBody)) {
+          keyManager.disableKey(apiKey, `上游返回 HTTP ${statusCode} (insufficient)`);
+          console.warn(`[Key] 自动禁用: ${apiKey.slice(0, 12)}... → 换 key 重试`);
+          continue;
+        }
+
+        // 不可重试的错误直接返回
+        if (errorBody.toLowerCase().includes('insufficient')) {
+          keyManager.disableKey(apiKey, `上游返回 insufficient (HTTP ${statusCode})`);
+        }
+
+        return res.status(statusCode).json({
+          type: 'error',
+          error: {
+            type: statusCode === 429 ? 'rate_limit_error' : 'api_error',
+            message: errorBody.slice(0, 1000),
+          },
+        });
+      }
+
+      // 成功响应
+      const { proxyRes } = result;
 
       if (isStream) {
         res.setHeader('Content-Type', 'text/event-stream');
@@ -293,7 +346,6 @@ app.post('/v1/messages', async (req, res) => {
             }
 
             const anthropicResponse = openaiToAnthropic(openaiResponse);
-            // 如果上游没返回 input_tokens，用本地估算值填充
             if (anthropicResponse.usage && !anthropicResponse.usage.input_tokens) {
               anthropicResponse.usage.input_tokens = estimatedInputTokens;
             }
@@ -307,25 +359,24 @@ app.post('/v1/messages', async (req, res) => {
           }
         });
       }
-    });
 
-    proxyReq.on('error', (err) => {
+      return; // 成功处理，退出重试循环
+
+    } catch (err) {
       console.error('[代理] 请求失败:', err.message);
-      res.status(502).json({
+      // 网络错误不重试，直接返回
+      return res.status(502).json({
         type: 'error',
         error: { type: 'api_error', message: `上游连接失败: ${err.message}` },
       });
-    });
-
-    proxyReq.write(bodyStr);
-    proxyReq.end();
-  } catch (err) {
-    console.error('[代理] 未知错误:', err.message);
-    res.status(500).json({
-      type: 'error',
-      error: { type: 'api_error', message: err.message },
-    });
+    }
   }
+
+  // 所有重试都用完了
+  res.status(503).json({
+    type: 'error',
+    error: { type: 'overloaded_error', message: '所有可用 Key 均额度不足' },
+  });
 });
 
 // ============================================================
