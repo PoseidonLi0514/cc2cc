@@ -8,7 +8,7 @@ const DATA_FILE = path.join(__dirname, '..', 'data.json');
 
 class KeyManager {
   constructor() {
-    // { key: string, enabled: boolean, disabledAt: number|null, disableReason: string|null }
+    // { key: string, enabled: boolean, disabledAt: number|null, disableReason: string|null, callCount: number }
     this.keys = [];
     this.currentIndex = 0;
     this.upstreamBaseUrl = 'https://core.blink.new/api/v1/ai/chat/completions';
@@ -68,7 +68,7 @@ class KeyManager {
       const k = raw.trim();
       if (k && !existing.has(k)) {
         existing.add(k);
-        const entry = { key: k, enabled: true, disabledAt: null, disableReason: null };
+        const entry = { key: k, enabled: true, disabledAt: null, disableReason: null, callCount: 0 };
         this.keys.push(entry);
         added.push(entry);
       }
@@ -123,6 +123,8 @@ class KeyManager {
     this.currentIndex = this.currentIndex % enabledKeys.length;
     const key = enabledKeys[this.currentIndex];
     this.currentIndex = (this.currentIndex + 1) % enabledKeys.length;
+    key.callCount = (key.callCount || 0) + 1;
+    this._save();
     return key.key;
   }
 
@@ -134,6 +136,7 @@ class KeyManager {
       enabled: k.enabled,
       disabledAt: k.disabledAt,
       disableReason: k.disableReason,
+      callCount: k.callCount || 0,
     }));
   }
 

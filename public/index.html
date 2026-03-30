@@ -52,6 +52,7 @@
       border: 1px solid #334155; font-size: 13px;
     }
     .key-item .key-text { font-family: monospace; flex: 1; }
+    .key-item .key-call-count { margin: 0 10px; font-size: 12px; color: #3b82f6; font-weight: 500; white-space: nowrap; }
     .key-item .key-status { margin: 0 12px; }
     .key-item .key-status.active { color: #22c55e; }
     .key-item .key-status.inactive { color: #ef4444; }
@@ -310,6 +311,7 @@
         <div class="key-item">
           <input type="checkbox" class="key-checkbox" data-key="${k.key}">
           <span class="key-text">${k.maskedKey}</span>
+          <span class="key-call-count" title="调用次数">${k.callCount || 0} 次</span>
           <span class="key-status ${k.enabled ? 'active' : 'inactive'}">${k.enabled ? '● 可用' : '● 已禁用'}</span>
           ${k.disableReason ? `<span class="key-reason" title="${k.disableReason}">${k.disableReason}</span>` : ''}
           <div class="key-actions">
