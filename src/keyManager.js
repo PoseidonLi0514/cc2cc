@@ -12,6 +12,7 @@ class KeyManager {
     this.keys = [];
     this.currentIndex = 0;
     this.upstreamBaseUrl = 'https://core.blink.new/api/v1/ai/chat/completions';
+    this.adminPassword = '';
     this._load();
   }
 
@@ -28,6 +29,9 @@ class KeyManager {
         if (data.upstreamBaseUrl) {
           this.upstreamBaseUrl = data.upstreamBaseUrl;
         }
+        if (data.adminPassword) {
+          this.adminPassword = data.adminPassword;
+        }
         console.log(`[持久化] 已加载 ${this.keys.length} 个 key`);
       }
     } catch (err) {
@@ -40,6 +44,7 @@ class KeyManager {
       const data = {
         keys: this.keys,
         upstreamBaseUrl: this.upstreamBaseUrl,
+        adminPassword: this.adminPassword,
       };
       fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
@@ -55,6 +60,17 @@ class KeyManager {
 
   setUpstreamUrl(url) {
     this.upstreamBaseUrl = url;
+    this._save();
+  }
+
+  // ── 管理密码 ──
+
+  getAdminPassword() {
+    return this.adminPassword || '';
+  }
+
+  setAdminPassword(password) {
+    this.adminPassword = password || '';
     this._save();
   }
 

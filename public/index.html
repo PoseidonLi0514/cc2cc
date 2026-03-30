@@ -213,6 +213,16 @@
 
     .empty { text-align: center; color: var(--text-muted); padding: 40px; font-size: 14px; }
     .hidden { display: none !important; }
+
+    /* 登录 tab 切换 */
+    .login-tabs { display: flex; gap: 0; margin-bottom: 20px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+    .login-tab {
+      flex: 1; padding: 10px; font-size: 13px; font-weight: 500; text-align: center;
+      cursor: pointer; background: transparent; color: var(--text-muted); border: none;
+      transition: all 0.15s;
+    }
+    .login-tab.active { background: var(--accent); color: white; }
+    .login-tab:not(.active):hover { background: var(--bg-input); color: var(--text-secondary); }
   </style>
 </head>
 <body>
@@ -222,8 +232,17 @@
     <div class="login-box">
       <div class="login-logo">cc</div>
       <h1>cc2cc</h1>
-      <p class="subtitle">请输入任意一个已添加的 Key 登录</p>
-      <input type="password" id="loginKeyInput" placeholder="输入 Key 登录..." onkeydown="if(event.key==='Enter') doLogin()">
+      <p class="subtitle">请登录管理面板</p>
+      <div class="login-tabs">
+        <button class="login-tab active" onclick="switchLoginTab('password')">密码登录</button>
+        <button class="login-tab" onclick="switchLoginTab('key')">Key 登录</button>
+      </div>
+      <div id="loginPasswordForm">
+        <input type="password" id="loginPasswordInput" placeholder="输入管理密码..." onkeydown="if(event.key==='Enter') doLogin()">
+      </div>
+      <div id="loginKeyForm" class="hidden">
+        <input type="password" id="loginKeyInput" placeholder="输入任意一个已添加的 Key..." onkeydown="if(event.key==='Enter') doLogin()">
+      </div>
       <div class="error-msg" id="loginError"></div>
       <button onclick="doLogin()">登录</button>
     </div>
@@ -253,6 +272,14 @@
       <input type="text" id="upstreamUrl" placeholder="https://core.blink.new/api/v1/ai/chat/completions">
       <div class="btn-row">
         <button class="btn-primary" onclick="saveConfig()">保存</button>
+      </div>
+
+      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
+        <label>管理密码 <span id="passwordStatus" style="font-size: 11px; margin-left: 6px;"></span></label>
+        <input type="password" id="adminPasswordInput" placeholder="设置管理密码（留空则清除）">
+        <div class="btn-row">
+          <button class="btn-primary" onclick="savePassword()">保存密码</button>
+        </div>
       </div>
     </div>
 
@@ -341,12 +368,29 @@
       }
     }
 
+    let currentLoginTab = 'password';
+
+    function switchLoginTab(tab) {
+      currentLoginTab = tab;
+      document.querySelectorAll('.login-tab').forEach(el => el.classList.remove('active'));
+      document.querySelector(`.login-tab[onclick*="${tab}"]`).classList.add('active');
+      document.getElementById('loginPasswordForm').classList.toggle('hidden', tab !== 'password');
+      document.getElementById('loginKeyForm').classList.toggle('hidden', tab !== 'key');
+      document.getElementById('loginError').textContent = '';
+      if (tab === 'password') {
+        document.getElementById('loginPasswordInput').focus();
+      } else {
+        document.getElementById('loginKeyInput').focus();
+      }
+    }
+
     function showLogin() {
       document.getElementById('loginOverlay').classList.remove('hidden');
       document.getElementById('mainPanel').classList.add('hidden');
       document.getElementById('loginError').textContent = '';
+      document.getElementById('loginPasswordInput').value = '';
       document.getElementById('loginKeyInput').value = '';
-      document.getElementById('loginKeyInput').focus();
+      switchLoginTab('password');
     }
 
     function showMain() {
@@ -357,17 +401,28 @@
     }
 
     async function doLogin() {
-      const key = document.getElementById('loginKeyInput').value.trim();
-      if (!key) {
-        document.getElementById('loginError').textContent = '请输入 Key';
-        return;
+      const body = {};
+      if (currentLoginTab === 'password') {
+        const pw = document.getElementById('loginPasswordInput').value.trim();
+        if (!pw) {
+          document.getElementById('loginError').textContent = '请输入密码';
+          return;
+        }
+        body.password = pw;
+      } else {
+        const key = document.getElementById('loginKeyInput').value.trim();
+        if (!key) {
+          document.getElementById('loginError').textContent = '请输入 Key';
+          return;
+        }
+        body.key = key;
       }
 
       try {
         const res = await fetch('/admin/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key }),
+          body: JSON.stringify(body),
         });
         const data = await res.json();
 
@@ -399,6 +454,8 @@
       try {
         const data = await api('GET', '/admin/config');
         document.getElementById('upstreamUrl').value = data.upstreamBaseUrl || '';
+        document.getElementById('passwordStatus').textContent = data.hasPassword ? '(已设置)' : '(未设置)';
+        document.getElementById('passwordStatus').style.color = data.hasPassword ? 'var(--green)' : 'var(--text-muted)';
       } catch {}
     }
 
@@ -408,6 +465,16 @@
       try {
         await api('POST', '/admin/config', { upstreamBaseUrl: url });
         toast('配置已保存');
+      } catch {}
+    }
+
+    async function savePassword() {
+      const password = document.getElementById('adminPasswordInput').value;
+      try {
+        await api('POST', '/admin/password', { password });
+        document.getElementById('adminPasswordInput').value = '';
+        toast(password ? '密码已设置' : '密码已清除');
+        loadConfig();
       } catch {}
     }
 

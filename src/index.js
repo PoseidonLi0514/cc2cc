@@ -12,6 +12,13 @@ const { estimateRequestTokens } = require('./tokenEstimator');
 const app = express();
 const keyManager = new KeyManager();
 
+// 管理面板密码（环境变量优先，否则从 data.json 读取）
+const ENV_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+
+function getAdminPassword() {
+  return ENV_ADMIN_PASSWORD || keyManager.getAdminPassword();
+}
+
 // 已登录的 session token 集合（token → 过期时间戳）
 const sessions = new Map();
 const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 小时
@@ -30,15 +37,18 @@ function cleanExpiredSessions() {
 // ============================================================
 // 管理面板鉴权中间件
 // 规则：
-//   - 没有任何 key 时 → 无需鉴权，直接放行
-//   - 有 key 时 → 需要用任意一个已存在的 key 登录获取 session token
+//   - 没有任何 key 且没设密码 → 无需鉴权，直接放行
+//   - 有 key 或有密码 → 需要登录
 //   - /v1/messages（代理接口）不鉴权
 //   - /admin/auth-status 和 /admin/login 不鉴权
 // ============================================================
 
+function needsAuth() {
+  return keyManager.hasAnyKeys() || !!getAdminPassword();
+}
+
 function adminAuth(req, res, next) {
-  // 没添加过 key → 无需鉴权
-  if (!keyManager.hasAnyKeys()) {
+  if (!needsAuth()) {
     return next();
   }
 
@@ -69,7 +79,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // 检查是否需要鉴权
 app.get('/admin/auth-status', (_req, res) => {
-  const needAuth = keyManager.hasAnyKeys();
+  const need = needsAuth();
 
   // 如果带了有效 token，告诉前端已登录
   const authHeader = _req.headers['authorization'] || '';
@@ -81,32 +91,50 @@ app.get('/admin/auth-status', (_req, res) => {
     authenticated = !!(expiresAt && expiresAt > Date.now());
   }
 
-  res.json({ needAuth, authenticated });
+  res.json({ needAuth: need, authenticated });
 });
 
-// 登录：用任意一个已存在的 key 登录
+// 登录：用密码或任意一个已存在的 key 登录
 app.post('/admin/login', (req, res) => {
-  const { key } = req.body;
+  const { key, password } = req.body;
 
-  // 没有 key 时直接放行
-  if (!keyManager.hasAnyKeys()) {
+  // 没有 key 也没设密码 → 直接放行
+  if (!needsAuth()) {
     const token = generateToken();
     sessions.set(token, Date.now() + SESSION_TTL);
     return res.json({ ok: true, token });
   }
 
-  if (!key || typeof key !== 'string') {
-    return res.status(400).json({ error: '请输入 Key' });
+  // 密码登录
+  if (password && typeof password === 'string' && getAdminPassword()) {
+    if (password === getAdminPassword()) {
+      const token = generateToken();
+      sessions.set(token, Date.now() + SESSION_TTL);
+      console.log('[鉴权] 密码登录成功');
+      return res.json({ ok: true, token });
+    }
   }
 
-  if (!keyManager.hasKey(key.trim())) {
-    return res.status(403).json({ error: 'Key 不存在，无法登录' });
+  // Key 登录
+  if (key && typeof key === 'string') {
+    if (keyManager.hasKey(key.trim())) {
+      const token = generateToken();
+      sessions.set(token, Date.now() + SESSION_TTL);
+      console.log(`[鉴权] Key 登录成功 (key: ${key.slice(0, 12)}...)`);
+      return res.json({ ok: true, token });
+    }
   }
 
-  const token = generateToken();
-  sessions.set(token, Date.now() + SESSION_TTL);
-  console.log(`[鉴权] 登录成功 (key: ${key.slice(0, 12)}...)`);
-  res.json({ ok: true, token });
+  // 密码登录失败
+  if (password && getAdminPassword()) {
+    return res.status(403).json({ error: '密码错误' });
+  }
+
+  if (!key && !password) {
+    return res.status(400).json({ error: '请输入密码或 Key' });
+  }
+
+  return res.status(403).json({ error: 'Key 不存在，无法登录' });
 });
 
 // 登出
@@ -123,7 +151,10 @@ app.post('/admin/logout', (req, res) => {
 
 // 获取配置
 app.get('/admin/config', adminAuth, (_req, res) => {
-  res.json({ upstreamBaseUrl: keyManager.getUpstreamUrl() });
+  res.json({
+    upstreamBaseUrl: keyManager.getUpstreamUrl(),
+    hasPassword: !!getAdminPassword(),
+  });
 });
 
 // 更新上游地址
@@ -136,6 +167,17 @@ app.post('/admin/config', adminAuth, (req, res) => {
   } else {
     res.status(400).json({ error: '缺少 upstreamBaseUrl' });
   }
+});
+
+// 设置管理密码
+app.post('/admin/password', adminAuth, (req, res) => {
+  const { password } = req.body;
+  if (typeof password !== 'string') {
+    return res.status(400).json({ error: '密码格式错误' });
+  }
+  keyManager.setAdminPassword(password);
+  console.log(`[配置] 管理密码已${password ? '设置' : '清除'}`);
+  res.json({ ok: true, hasPassword: !!password });
 });
 
 // 列出所有 key
